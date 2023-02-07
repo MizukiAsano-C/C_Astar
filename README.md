@@ -11,7 +11,7 @@
 
 ### リストについて
 - だえうホームページ
-    - https://daeudaeu.com/list-structure/
+    - https://daeudaeu.com/node-structure/
 - C言語によるはじめてのアルゴリズム入門　改訂第3版
 
 

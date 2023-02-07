@@ -16,41 +16,55 @@ const int G_MAP[MAP_HEIGHT][MAP_WIDTH] = {
     {0, 0, 0, 0, 0, 0, 0}  // 42 ~ 48
 };
 
+// External Function Prototype
+// ----------
+
+extern void InitOpenList();
+extern void InitCloseList();
+extern void AddOpenList(node);
+extern void AddCloseList(node);
+extern int GetOpenList(node *, int);
+extern int GetCloseList(node *, int);
+extern void EraseOpenList();
+extern void EraseCloseList();
+extern int SearchOpenList(node);
+extern int SearchCloseList(node);
+extern void CheckOpenList(void);
+extern void CheckCloseList(void);
+extern void SortOpenList(void);
+extern int GetOpen_i(void);
+
 // Function Prototype
 // ----------
 
-int AStar(node, node, list *, list *);
-int IsNodeSamePosition(node, node);
-void SetAdjacentNode(node, list *);
-void CalcHeuristic(list *, node);
-void CalcAdjacentNodeTotalCost(list *, double, list *, list *, int, int );
-
-void InitList(list *);
-void AddList(list *, int *, list);
-void GetList(list *, int *, list *);
-void erase_list(list *, int *);
+int AStar(point, point);
+int IsNodeSamePosition(point, point);
+void SetNodeXY(point *, int, int);
+void SetAdjacentNode(point, node *);
+void CalcHeuristic(node *, point);
+void CalcAdjacentNodeTotalCost(node *, double, double *, point);
+int JudgeAdjacentNode(node *, double, double *);
+void AddAdjacentNode(node *, double, node);
 
 // Function Body
 // ----------
 
 int main()
 {
-    node goal_node;
-    node start_node;
-    list open_list[MAX_LIST_SIZE];
-    list close_list[MAX_LIST_SIZE];
+    point goal_point;
+    point start_point;
 
     int result;
 
-    goal_node.x = 1;
-    goal_node.y = 1;
-    start_node.x = 4;
-    start_node.y = 2;
+    goal_point.x = 1;
+    goal_point.y = 1;
+    start_point.x = 4;
+    start_point.y = 2;
 
-    InitList(open_list);
-    InitList(close_list);
+    InitOpenList();
+    InitCloseList();
 
-    result = AStar(start_node, goal_node, open_list, close_list);
+    result = AStar(start_point, goal_point);
 
     if (result == 1)
     {
@@ -62,58 +76,79 @@ int main()
     }
 }
 
-int AStar(node start_node, node goal_node, list *open_list, list *close_list)
+int AStar(point start_point, point goal_point)
 {
-    list now_list;
-    list adjacent_node[4];
-    int open_count = 0;
-    int close_count = 0;
-    int adjacent_count;
-    double cost;
+    int route_check = 0;
+    int i;
+    int display_i;
+    int ret_adjacent;
+    node now_node;
+    node adjacent_node[4];
+    double temp_total_cost;
 
-    now_list.position = start_node;
-    now_list.total_cost = 0;
-    AddList(open_list, &open_count, now_list);
+    now_node.position = start_point;
+    now_node.total_cost = 0;
+    AddOpenList(now_node);
 
-    while (open_count != 0)
+    while (GetOpenList(&now_node, 0) != -1)
     {
-        GetList(open_list, &open_count, &now_list);
-        erase_list(open_list, &open_count);
+        GetOpenList(&now_node, 0);
+        EraseOpenList(0);
 
-        if (IsNodeSamePosition(now_list.position, goal_node))
+        if (IsNodeSamePosition(now_node.position, goal_point))
         {
-            AddList(close_list, &close_count, now_list);
-            return 1;
+            AddCloseList(now_node);
+            route_check = 1;
         }
 
-        SetAdjacentNode(now_list.position, adjacent_node);
+        SetAdjacentNode(now_node.position, adjacent_node);
 
-/* for DEBUG
-        printf("left : %d, right : %d, upper : %d, under : %d\r\n",
-               adjacent_node[LEFT].position.x, adjacent_node[RIGHT].position.x, adjacent_node[UPPER].position.x, adjacent_node[UNDER].position.x);
-*/
-        CalcHeuristic(adjacent_node, goal_node);
+        for (i = 0; i < 4; i++)
+        {
+            if ((adjacent_node->position.x == -1) || (adjacent_node[i].position.y == -1))
+            {
+                // next position check
+                continue;
+            }
 
-/* for DEBUG
-        printf("left : %f, right : %f, upper : %f, under : %f\r\n",
-               adjacent_node[LEFT].heuristic_cost, adjacent_node[RIGHT].heuristic_cost, adjacent_node[UPPER].heuristic_cost, adjacent_node[UNDER].heuristic_cost);
-*/
+            CalcAdjacentNodeTotalCost(&adjacent_node[i], now_node.total_cost, &temp_total_cost, goal_point);
+            ret_adjacent = JudgeAdjacentNode(&adjacent_node[i], adjacent_node[i].total_cost, &temp_total_cost);
+            if (ret_adjacent == 1)
+            {
+                AddAdjacentNode(&adjacent_node[i], temp_total_cost, now_node);
+            }
+        }
+        SortOpenList();
 
-        CalcAdjacentNodeTotalCost(adjacent_node, now_list.total_cost, open_list, close_list, open_count, close_count);
-
-        // Next: Equall Cell Check
-        // |
-        // AddList(close_list, &close_count, now_list)
-        // |
-        // Sort
+#ifdef DEBUG_DISPLAY
+        printf("--- after sort ---\r\n");
+        display_i = GetOpen_i();
+        for (i = 0; i < display_i; i++)
+        {
+            GetOpenList(&now_node, i);
+            printf("[%d] = (%d, %d)\t", i, now_node.position.x, now_node.position.y);
+            printf("cost = %f\r\n", i, now_node.total_cost);
+        }
+#endif
     }
 
-    return 0;
+    if (route_check == 1)
+    {
+        while(!IsNodeSamePosition(start_point, now_node.parent_index))
+        {
+            printf("[%d, %d]\r\n", now_node.parent_index.x, now_node.parent_index.y);
+            now_node.position = now_node.parent_index;
+            i = SearchCloseList(now_node);
+            GetCloseList(&now_node, i);
+        }
+    }
+
+    return route_check;
 }
 
-int IsNodeSamePosition(node now_node, node goal)
+int IsNodeSamePosition(point node_a, point node_b)
 {
-    if ((now_node.x == goal.x) && (now_node.y == goal.y))
+    if ((node_a.x == node_b.x) && (node_a.y == node_b.y))
     {
         return 1;
     }
@@ -123,153 +158,120 @@ int IsNodeSamePosition(node now_node, node goal)
     }
 }
 
-void SetAdjacentNode(node now_node, list *adjacent)
+void SetNodeXY(point *position, int x, int y)
+{
+    position->x = x;
+    position->y = y;
+}
+
+void SetAdjacentNode(point now_node, node *adjacent)
 {
     // printf("now_mode x = %d, y = %d\r\n", now_node.x, now_node.y);
     if ((now_node.x > 0) && (G_MAP[now_node.y][now_node.x - 1] != 0))
     {
         // left is ok
-        adjacent[LEFT].position.x = now_node.x - 1;
-        adjacent[LEFT].position.y = now_node.y;
+        SetNodeXY(&adjacent[LEFT].position, now_node.x - 1, now_node.y);
     }
     else
     {
-        adjacent[LEFT].position.x = -1;
-        adjacent[LEFT].position.y = -1;
+        SetNodeXY(&adjacent[LEFT].position, -1, -1);
     }
 
     if (((now_node.x + 1) < MAP_WIDTH) && (G_MAP[now_node.y][now_node.x + 1] != 0))
     {
         // right is ok
-        adjacent[RIGHT].position.x = now_node.x + 1;
-        adjacent[RIGHT].position.y = now_node.y;
+        SetNodeXY(&adjacent[RIGHT].position, now_node.x + 1, now_node.y);
     }
     else
     {
-        adjacent[RIGHT].position.x = -1;
-        adjacent[RIGHT].position.y = -1;
+        SetNodeXY(&adjacent[RIGHT].position, -1, -1);
     }
 
-    if ((now_node.y != 0) && (G_MAP[now_node.y - 1][now_node.x] != 0))
+    if ((now_node.y > 0) && (G_MAP[now_node.y - 1][now_node.x] != 0))
     {
         // upper is ok
-        adjacent[UPPER].position.x = now_node.x;
-        adjacent[UPPER].position.y = now_node.y - 1;
+        SetNodeXY(&adjacent[UPPER].position, now_node.x, now_node.y - 1);
     }
     else
     {
-        adjacent[UPPER].position.x = -1;
-        adjacent[UPPER].position.y = -1;
+        SetNodeXY(&adjacent[UPPER].position, -1, -1);
     }
 
     if (((now_node.y + 1) < MAP_HEIGHT) && (G_MAP[now_node.y + 1][now_node.x] != 0))
     {
         // under is ok
-        adjacent[UNDER].position.x = now_node.x;
-        adjacent[UNDER].position.y = now_node.y + 1;
+        SetNodeXY(&adjacent[UNDER].position, now_node.x, now_node.y + 1);
     }
     else
     {
-        adjacent[UNDER].position.x = -1;
-        adjacent[UNDER].position.y = -1;
+        SetNodeXY(&adjacent[UNDER].position, -1, -1);
     }
 }
 
-void CalcHeuristic(list *adjacent_node, node goal_node)
+void CalcHeuristic(node *adjacent_node, point goal_point)
 {
     int i;
     int temp_x;
     int temp_y;
 
-    for (i = 0; i < 4; i++)
-    {
-        if ((adjacent_node[i].position.x == -1) || (adjacent_node[i].position.y == -1))
-        {
-            // next position check
-            continue;
-        }
+    temp_x = adjacent_node->position.x - goal_point.x;
+    temp_y = adjacent_node->position.y - goal_point.y;
 
-        temp_x = adjacent_node[i].position.x - goal_node.x;
-        temp_y = adjacent_node[i].position.y - goal_node.y;
-        adjacent_node[i].heuristic_cost = sqrt((temp_x * temp_x) + (temp_y * temp_y));
-    }
+    adjacent_node->heuristic_cost = sqrt((temp_x * temp_x) + (temp_y * temp_y));
 }
 
-void CalcAdjacentNodeTotalCost(list *adjacent_node, double now_cost, list *open_list, list *close_list, int open_count, int close_count)
+void CalcAdjacentNodeTotalCost(node *adjacent_node, double now_cost, double *temp_total_cost, point goal_point)
 {
     double edge_cost;
-    double total_cost;
-    int i;
-    int temp_x;
-    int temp_y;
 
-    for (i = 0; i < 4; i++)
+    // MEMO: already checked map cost is not 0 at SetAdjacentNode()
+
+    CalcHeuristic(adjacent_node, goal_point);
+    edge_cost = G_MAP[adjacent_node->position.y][adjacent_node->position.x];
+    *temp_total_cost = edge_cost + adjacent_node->heuristic_cost + now_cost;
+}
+
+int JudgeAdjacentNode(node *adjacent_node, double total_cost, double *temp_total_cost)
+{
+    int ret = 0; // 1: add OK. 0: don't add to list
+    int open_index;
+    int close_index;
+    node temp_node;
+
+    open_index = SearchOpenList(*adjacent_node);
+    close_index = SearchCloseList(*adjacent_node);
+
+    if ((open_index == -1) && (close_index == -1))
     {
-        if ((adjacent_node[i].position.x == -1) || (adjacent_node[i].position.y == -1))
+        ret = 1;
+    }
+    else if (open_index != 0)
+    {
+        GetOpenList(&temp_node, open_index);
+
+        if (adjacent_node->total_cost < temp_node.total_cost)
         {
-            // next position check
-            continue;
+            ret = 1;
+            EraseOpenList(open_index);
         }
-
-        // MEMO: already checked map cost is not 0 at SetAdjacentNode()
-        edge_cost = G_MAP[adjacent_node[i].position.y][adjacent_node[i].position.x];
-        total_cost = edge_cost + adjacent_node[i].heuristic_cost + now_cost;
     }
-}
-
-#if 0
-int JudgeNode(list *open_list, list *close_list, list adjacent_node, double total_cost, int *open_count, int *close_count)
-{
-    int i;
-    int temp_list;
-
-    for(i=0;i<open_count;i++)
+    else if (close_index != 0)
     {
-        // GetList(temp_list, cou)
-    }
-}
-#endif
+        GetCloseList(&temp_node, close_index);
 
-// List function
-
-void InitList(list *list)
-{
-    int i;
-    for (i = 0; i < MAX_LIST_SIZE; i++)
-    {
-        list[i].position.x = -1;
-        list[i].position.y = -1;
-        list[i].heuristic_cost = COST_MAX;
-        list[i].total_cost = 0;
-        list[i].parent_index.x = -1;
-        list[i].parent_index.y = -1;
-    }
-}
-
-void AddList(list *add_list, int *count, list now_list)
-{
-    add_list[*count] = now_list;
-    *count += 1;
-}
-
-void GetList(list *get_list, int *count, list *now_list)
-{
-    if (*count <= 0)
-    {
-        return;
+        if (adjacent_node->total_cost < temp_node.total_cost)
+        {
+            ret = 1;
+            EraseCloseList(close_index);
+        }
     }
 
-    *now_list = get_list[*count - 1];
+    return ret;
 }
 
-void erase_list(list *list, int *count)
+void AddAdjacentNode(node *adjacent_node, double total_cost, node now_node)
 {
-    list[*count].position.x = -1;
-    list[*count].position.y = -1;
-    list[*count].heuristic_cost = COST_MAX;
-    list[*count].total_cost = 0;
-    list[*count].parent_index.x = -1;
-    list[*count].parent_index.y = -1;
-
-    *count -= 1;
+    adjacent_node->parent_index = now_node.position;
+    adjacent_node->total_cost = total_cost;
+    AddOpenList(*adjacent_node);
 }

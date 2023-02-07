@@ -13,15 +13,15 @@ typedef struct
 {
     int x;
     int y;
-} node;
+} point;
 
 typedef struct
 {
-    node position;
-    node parent_index;
-    double heuristic_cost;
+    point position;
+    point parent_index;
     double total_cost;
-} list;
+    double heuristic_cost;
+} node;
 
 typedef enum
 {
