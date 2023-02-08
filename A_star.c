@@ -4,7 +4,7 @@
 
 // Glogal Values
 // ----------
-
+#if 1
 const int G_MAP[MAP_HEIGHT][MAP_WIDTH] = {
     // 0: impassable, >0: cost
     {0, 0, 0, 0, 0, 0, 0}, // 0 ~ 6
@@ -15,8 +15,25 @@ const int G_MAP[MAP_HEIGHT][MAP_WIDTH] = {
     {0, 1, 1, 1, 1, 1, 0}, // 35 ~ 41
     {0, 0, 0, 0, 0, 0, 0}  // 42 ~ 48
 };
+#else
+const int G_MAP[MAP_HEIGHT][MAP_WIDTH] = {
+    // 0: impassable, >0: cost
+    {0, 0, 0, 0, 0, 0, 0}, // 0 ~ 6
+    {0, 1, 1, 0, 1, 1, 0}, // 7 ~ 13
+    {0, 1, 0, 0, 1, 0, 0}, // 14 ~ 20
+    {0, 1, 0, 0, 1, 1, 0}, // 21 ~ 27
+    {0, 1, 1, 0, 1, 1, 0}, // 29 ~ 34
+    {0, 1, 1, 0, 1, 1, 0}, // 35 ~ 41
+    {0, 0, 0, 0, 0, 0, 0}  // 42 ~ 48
+};
+#endif
 
-// External Function Prototype
+static node open_list[MAX_LIST_SIZE];
+static node close_list[MAX_LIST_SIZE];
+static int open_i = 0;
+static int close_i = 0;
+
+// Function Prototype list
 // ----------
 
 extern void InitOpenList();
@@ -25,14 +42,19 @@ extern void AddOpenList(node);
 extern void AddCloseList(node);
 extern int GetOpenList(node *, int);
 extern int GetCloseList(node *, int);
-extern void EraseOpenList();
-extern void EraseCloseList();
+extern void EraseOpenList(int);
+extern void EraseCloseList(int);
 extern int SearchOpenList(node);
 extern int SearchCloseList(node);
 extern void CheckOpenList(void);
-extern void CheckCloseList(void);
-extern void SortOpenList(void);
+extern void CheckCloseList();
 extern int GetOpen_i(void);
+
+// Function Prototype sort
+// ----------
+
+extern void SortOpenList();
+extern void quick_sort(node *, int, int);
 
 // Function Prototype
 // ----------
@@ -43,7 +65,7 @@ void SetNodeXY(point *, int, int);
 void SetAdjacentNode(point, node *);
 void CalcHeuristic(node *, point);
 void CalcAdjacentNodeTotalCost(node *, double, double *, point);
-int JudgeAdjacentNode(node *, double, double *);
+int JudgeAdjacentNode(node *, double);
 void AddAdjacentNode(node *, double, node);
 
 // Function Body
@@ -80,9 +102,9 @@ int AStar(point start_point, point goal_point)
 {
     int route_check = 0;
     int i;
-    int display_i;
     int ret_adjacent;
     node now_node;
+    node before_node;
     node adjacent_node[4];
     double temp_total_cost;
 
@@ -92,55 +114,64 @@ int AStar(point start_point, point goal_point)
 
     while (GetOpenList(&now_node, 0) != -1)
     {
-        GetOpenList(&now_node, 0);
-        EraseOpenList(0);
-
+#ifdef DEBUG_DISPLAY
+        printf("loop in ----------\r\n");
+        printf("now_node: (%d, %d) total = %f\r\n", now_node.position.x, now_node.position.y, now_node.total_cost);
+#endif
         if (IsNodeSamePosition(now_node.position, goal_point))
         {
             AddCloseList(now_node);
             route_check = 1;
+            break;
         }
 
         SetAdjacentNode(now_node.position, adjacent_node);
 
         for (i = 0; i < 4; i++)
         {
-            if ((adjacent_node->position.x == -1) || (adjacent_node[i].position.y == -1))
+            if ((adjacent_node[i].position.x == -1) || (adjacent_node[i].position.y == -1))
             {
                 // next position check
                 continue;
             }
 
+#ifdef DEBUG_DISPLAY
+            printf(" adj[%d] x = %d, y = %d\r\n", i, adjacent_node[i].position.x, adjacent_node[i].position.y);
+#endif
             CalcAdjacentNodeTotalCost(&adjacent_node[i], now_node.total_cost, &temp_total_cost, goal_point);
-            ret_adjacent = JudgeAdjacentNode(&adjacent_node[i], adjacent_node[i].total_cost, &temp_total_cost);
+
+            ret_adjacent = JudgeAdjacentNode(&adjacent_node[i], temp_total_cost);
             if (ret_adjacent == 1)
             {
+#ifdef DEBUG_DISPLAY
+                printf("total_cost change\r\n");
+#endif
                 AddAdjacentNode(&adjacent_node[i], temp_total_cost, now_node);
             }
         }
+        EraseOpenList(0);
+        AddCloseList(now_node);
         SortOpenList();
-
 #ifdef DEBUG_DISPLAY
-        printf("--- after sort ---\r\n");
-        display_i = GetOpen_i();
-        for (i = 0; i < display_i; i++)
-        {
-            GetOpenList(&now_node, i);
-            printf("[%d] = (%d, %d)\t", i, now_node.position.x, now_node.position.y);
-            printf("cost = %f\r\n", i, now_node.total_cost);
-        }
+        printf("---------- open check end\r\n");
 #endif
     }
 
     if (route_check == 1)
     {
-        while(!IsNodeSamePosition(start_point, now_node.parent_index))
+        now_node.position = goal_point;
+        printf("[%d, %d]\r\n", now_node.position.x, now_node.position.y);
+        do
         {
-            printf("[%d, %d]\r\n", now_node.parent_index.x, now_node.parent_index.y);
-            now_node.position = now_node.parent_index;
-            i = SearchCloseList(now_node);
+            before_node.position = now_node.parent_index;
+            i = SearchCloseList(before_node);
             GetCloseList(&now_node, i);
-        }
+            printf("[%d, %d]\r\n", now_node.position.x, now_node.position.y);
+#ifdef DEBUG_DISPLAY
+            printf("   position(%d, %d)\r\n", now_node.position.x, now_node.position.y);
+            printf("   parent  (%d, %d)\r\n", now_node.parent_index.x, now_node.parent_index.y);
+#endif
+        } while (!IsNodeSamePosition(start_point, now_node.position));
     }
 
     return route_check;
@@ -148,8 +179,14 @@ int AStar(point start_point, point goal_point)
 
 int IsNodeSamePosition(point node_a, point node_b)
 {
+#ifdef DEBUG_DISPLAY
+    printf("a.(%d, %d) : b.(%d, %d)\r\n", node_a.x, node_a.y, node_b.x, node_b.y);
+#endif
     if ((node_a.x == node_b.x) && (node_a.y == node_b.y))
     {
+#ifdef DEBUG_DISPLAY
+        // printf("same position found\r\n");
+#endif
         return 1;
     }
     else
@@ -166,7 +203,7 @@ void SetNodeXY(point *position, int x, int y)
 
 void SetAdjacentNode(point now_node, node *adjacent)
 {
-    // printf("now_mode x = %d, y = %d\r\n", now_node.x, now_node.y);
+    // printf("set adjacent node now_mode x = %d, y = %d\r\n", now_node.x, now_node.y);
     if ((now_node.x > 0) && (G_MAP[now_node.y][now_node.x - 1] != 0))
     {
         // left is ok
@@ -229,38 +266,62 @@ void CalcAdjacentNodeTotalCost(node *adjacent_node, double now_cost, double *tem
     CalcHeuristic(adjacent_node, goal_point);
     edge_cost = G_MAP[adjacent_node->position.y][adjacent_node->position.x];
     *temp_total_cost = edge_cost + adjacent_node->heuristic_cost + now_cost;
+
+#ifdef DEBUG_DISPLAY
+    // printf("calc total cost: %f\r\n", *temp_total_cost);
+#endif
 }
 
-int JudgeAdjacentNode(node *adjacent_node, double total_cost, double *temp_total_cost)
+int JudgeAdjacentNode(node *adjacent_node, double total_cost)
 {
     int ret = 0; // 1: add OK. 0: don't add to list
     int open_index;
     int close_index;
     node temp_node;
 
+#ifdef DEBUG_DISPLAY
+    // printf("adj node (%d, %d)\r\n", adjacent_node->position.x, adjacent_node->position.y);
+#endif
+
     open_index = SearchOpenList(*adjacent_node);
     close_index = SearchCloseList(*adjacent_node);
 
     if ((open_index == -1) && (close_index == -1))
     {
+#ifdef DEBUG_DISPLAY
+        printf(" first position\r\n");
+#endif
         ret = 1;
     }
-    else if (open_index != 0)
+    else if (open_index != -1)
     {
-        GetOpenList(&temp_node, open_index);
+        if (open_index)
+            GetOpenList(&temp_node, open_index);
 
-        if (adjacent_node->total_cost < temp_node.total_cost)
+#ifdef DEBUG_DISPLAY
+        printf("  compare OPEN total = %f, now_total = %f\r\n", total_cost, temp_node.total_cost);
+#endif
+        if (total_cost < temp_node.total_cost)
         {
+#ifdef DEBUG_DISPLAY
+            printf("   erase\r\n");
+#endif
             ret = 1;
             EraseOpenList(open_index);
         }
     }
-    else if (close_index != 0)
+    else if (close_index != -1)
     {
         GetCloseList(&temp_node, close_index);
 
-        if (adjacent_node->total_cost < temp_node.total_cost)
+#ifdef DEBUG_DISPLAY
+        printf("  compare CLOSE total = %f, now_total = %f\r\n", total_cost, temp_node.total_cost);
+#endif
+        if (total_cost < temp_node.total_cost)
         {
+#ifdef DEBUG_DISPLAY
+            printf("   erase\r\n");
+#endif
             ret = 1;
             EraseCloseList(close_index);
         }

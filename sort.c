@@ -9,7 +9,7 @@ extern int GetOpen_i(void);
 
 // Function Prototype
 // ----------
-
+#if 0
 void SortOpenList();
 void quick_sort(node *, int, int);
 
@@ -76,3 +76,4 @@ void quick_sort(node *target_list, int left, int right)
     quick_sort(target_list, left, j_right - 1);
     quick_sort(target_list, j_right + 1, right);
 }
+#endif

@@ -9,6 +9,8 @@
 #define OPEN 1
 #define CLOSE 2
 
+// #define DEBUG_DISPLAY
+
 typedef struct
 {
     int x;

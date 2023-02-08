@@ -32,6 +32,9 @@ void CheckCloseList();
 
 int GetOpen_i(void);
 
+void SortOpenList();
+void quick_sort(node *, int, int);
+
 // Function Body
 // ----------
 
@@ -75,8 +78,8 @@ void AddOpenList(node new_node)
     }
 
     open_list[open_i] = new_node;
-    printf("add open list. [%d, %d] total : %f\r\n",
-           open_list[open_i].position.x, open_list[open_i].position.y, open_list[open_i].total_cost);
+    // printf("add open list. open_i : %d [%d, %d] total : %f\r\n",
+    //        open_i, open_list[open_i].position.x, open_list[open_i].position.y, open_list[open_i].total_cost);
     open_i += 1;
 }
 
@@ -92,26 +95,32 @@ void AddCloseList(node new_node)
 
 int GetOpenList(node *target_node, int iterator)
 {
-    if (open_i > 0)
-    {
-        *target_node = open_list[open_i - 1];
+    *target_node = open_list[iterator];
 
-        return 1;
+#ifdef DEBUG_DISPLAY
+    // printf(" get i = %d (%d, %d), total = %f\r\n",iterator, target_node->position.x, target_node->position.y, target_node->total_cost);
+#endif
+    if ((target_node->position.x == -1) || (target_node->position.y == -1))
+    {
+        return -1;
     }
 
-    return -1;
+    return 1;
 }
 
 int GetCloseList(node *target_node, int iterator)
 {
-    if (close_i > 0)
-    {
-        *target_node = close_list[close_i - 1];
+    *target_node = close_list[iterator];
 
-        return 1;
+#ifdef DEBUG_DISPLAY
+    printf(" get i = [%d] (%d, %d), parent (%d, %d)\r\n",iterator, target_node->position.x, target_node->position.y, target_node->parent_index.x, target_node->parent_index.y);
+#endif
+    if ((target_node->position.x == -1) || (target_node->position.y == -1))
+    {
+        return -1;
     }
 
-    return -1;
+    return 1;
 }
 
 int SearchOpenList(node target_node)
@@ -120,11 +129,16 @@ int SearchOpenList(node target_node)
 
     if (open_i <= 0)
     {
+        printf("iterator = 0\r\n");
         return -1;
     }
 
     for (i = 0; i < open_i; i++)
     {
+#ifdef DEBUG_DISPLAY
+        // printf(" @ search (%d, %d)\r\n", target_node.position.x, target_node.position.y);
+#endif
+
         if (IsNodeSamePosition(open_list[i].position, target_node.position))
         {
             return i;
@@ -143,10 +157,16 @@ int SearchCloseList(node target_node)
         return -1;
     }
 
+#ifdef DEBUG_DISPLAY
+        printf("search start ---\r\n");
+#endif
     for (i = 0; i < close_i; i++)
     {
         if (IsNodeSamePosition(close_list[i].position, target_node.position))
         {
+#ifdef DEBUG_DISPLAY
+            printf("---Search end: [%d](%d, %d)\r\n", i, target_node.position.x, target_node.position.y);
+#endif
             return i;
         }
     }
@@ -168,6 +188,8 @@ void EraseOpenList(int iterator)
         open_list[i] = open_list[i + 1];
     }
 
+    open_list[open_i].position.x = -1;
+    open_list[open_i].position.y = -1;
     open_i -= 1;
 }
 
@@ -185,6 +207,8 @@ void EraseCloseList(int iterator)
         close_list[i] = close_list[i + 1];
     }
 
+    close_list[close_i].position.x = -1;
+    close_list[close_i].position.y = -1;
     close_i -= 1;
 }
 
@@ -196,7 +220,7 @@ void CheckOpenList(void)
     for (i = 0; i < open_i; i++)
     {
         printf("[%d] = (%d, %d)\t", i, open_list[i].position.x, open_list[i].position.y);
-        printf("cost = %f\r\n", i, open_list[i].total_cost);
+        printf("total_cost = %f\r\n", open_list[i].total_cost);
     }
 }
 
@@ -207,10 +231,65 @@ void CheckCloseList(void)
     for (i = 0; i < close_i; i++)
     {
         printf("[%d] = (%d, %d)\r\n", i, close_list[i].position.x, close_list[i].position.y);
+        printf("  parent(%d, %d)\r\n", close_list[i].parent_index.x, close_list[i].parent_index.y);
     }
 }
 
 int GetOpen_i(void)
 {
     return open_i;
+}
+
+void SortOpenList(void)
+{
+    quick_sort(open_list, 0, open_i - 1);
+
+    // CheckOpenList();
+}
+
+void quick_sort(node *target_list, int left, int right)
+{
+    double standard;
+    node temp_node;
+    node left_node;
+    int i_left;
+    int j_right;
+
+    if (left >= right)
+    {
+        return;
+    }
+
+    standard = target_list[left].total_cost;
+    left_node = target_list[left];
+    i_left = left;
+    j_right = right + 1;
+
+    while (1)
+    {
+        do
+        {
+            i_left++;
+        } while (target_list[i_left].total_cost < standard);
+
+        do
+        {
+            j_right--;
+        } while (target_list[j_right].total_cost > standard);
+
+        if (i_left >= j_right)
+        {
+            break;
+        }
+
+        temp_node = target_list[i_left];
+        target_list[i_left] = target_list[j_right];
+        target_list[j_right] = temp_node;
+    }
+
+    target_list[left] = target_list[j_right];
+    target_list[j_right] = left_node;
+
+    quick_sort(target_list, left, j_right - 1);
+    quick_sort(target_list, j_right + 1, right);
 }
